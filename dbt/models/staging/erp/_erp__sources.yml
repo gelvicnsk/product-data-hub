@@ -1,8 +1,8 @@
 version: 2
 
 # Les tables raw sont chargées par ingestion/ : valeurs en texte, une partition par
-# journée (_extract_date). Pas de test de fraîcheur dbt ici : les journées sont simulées
-# (octobre 2026) ; la fraîcheur sera surveillée par Elementary sur _extract_date (étape 4).
+# journée (_extract_date). La surveillance dans le temps (volume, fraîcheur, schéma) est
+# faite par Elementary : fenêtres définies dans dbt_project.yml (vars + config elementary).
 
 sources:
   - name: erp
@@ -11,12 +11,56 @@ sources:
     tables:
       - name: erp_mara
         description: Données générales de l'article (MARA + désignation MAKT).
+        config:
+          elementary:
+            timestamp_column: _extract_date
+        data_tests:
+          # un export ERP manquant = une journée sans aucune ligne
+          - elementary.volume_anomalies:
+              config:
+                severity: warn
+                meta:
+                  anomaly: erp_missing_export
+          - elementary.freshness_anomalies:
+              config:
+                severity: warn
+                meta:
+                  anomaly: erp_missing_export
+          # schéma de référence = colonnes déclarées ci-dessous ; toute colonne en plus
+          # ou en moins (colonne SAP renommée par exemple) est signalée
+          - elementary.schema_changes_from_baseline:
+              arguments:
+                fail_on_added: true
+              config:
+                severity: warn
+                meta:
+                  anomaly: erp_renamed_column
         columns:
           - name: matnr
             description: Numéro d'article SAP sur 18 caractères.
+            data_type: text
             data_tests: [not_null]
+          - name: maktx
+            data_type: text
+          - name: mtart
+            data_type: text
+          - name: matkl
+            data_type: text
+          - name: meins
+            data_type: text
+          - name: mfrpn
+            data_type: text
+          - name: ersda
+            data_type: text
+          - name: laeda
+            data_type: text
+          - name: _source_file
+            data_type: text
           - name: _extract_date
+            data_type: date
             data_tests: [not_null]
+          - name: _loaded_at
+            data_type: timestamp with time zone
       - name: erp_mbew
         description: Valorisation de l'article (prix standard par site).
       - name: erp_mard

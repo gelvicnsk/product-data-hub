@@ -102,12 +102,15 @@ jobs:
         run: |
           dbt deps --profiles-dir .
           dbt build --profiles-dir .
-      - name: Chaque anomalie injectée est-elle détectée ?
+      - name: Chaque anomalie et chaque incident sont-ils détectés ?
         run: python scripts/check_anomalies.py
+      - name: Rapport Elementary
+        run: edr report --profiles-dir dbt --project-dir dbt --file-path data/edr/report.html --open-browser false
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: dbt-artifacts
+          name: dbt-et-elementary
           path: |
             dbt/target/run_results.json
             dbt/target/manifest.json
+            data/edr/report.html

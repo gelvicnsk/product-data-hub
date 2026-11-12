@@ -13,6 +13,23 @@ clean-targets: ["target", "dbt_packages"]
 
 flags:
   require_generic_test_arguments_property: true
+  # requis par Elementary avec dbt >= 1.8 (voir la documentation du paquet)
+  require_explicit_package_overrides_for_builtin_materializations: false
+  source_freshness_run_project_hooks: true
+
+vars:
+  # Les journées sont simulées (octobre 2026). Elementary calcule ses fenêtres de détection
+  # par rapport à l'heure du run : on lui donne « le lendemain matin de la dernière journée
+  # simulée » au lieu de l'heure réelle. À surcharger en production (variable vide = maintenant).
+  custom_run_started_at: "{{ env_var('PIPELINE_RUN_AT', '2026-10-31T06:00:00') }}"
+  # Fenêtres des tests d'anomalies Elementary : 30 jours d'historique, dont les 14 derniers
+  # sont examinés (seuil par défaut : 3 écarts types).
+  training_period:
+    period: day
+    count: 30
+  detection_period:
+    period: day
+    count: 14
 
 models:
   product_data_hub:
@@ -31,6 +48,10 @@ models:
       +materialized: table
       # statistiques à jour pour le planificateur PostgreSQL (tables recréées à chaque build)
       +post-hook: "analyze {{ this }}"
+
+  elementary:
+    # tables de métadonnées d'Elementary (résultats de tests, historique des runs)
+    +schema: elementary
 
 seeds:
   product_data_hub:

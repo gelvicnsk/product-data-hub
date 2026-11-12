@@ -1,3 +1,6 @@
 packages:
   - package: dbt-labs/dbt_utils
     version: [">=1.3.0", "<2.0.0"]
+  # même version que la CLI `edr` (elementary-data 0.26.1) : les deux doivent rester alignées
+  - package: elementary-data/elementary
+    version: 0.26.1

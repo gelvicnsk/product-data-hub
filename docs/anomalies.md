@@ -9,19 +9,21 @@ c'est ainsi qu'on vérifie que les tests fonctionnent (« tester les tests »).
 
 | Anomalie | Nombre (défaut) | Source | Détection prévue |
 |---|---|---|---|
-| `unknown_product_in_quotes` : article de devis absent de l'ERP | 6 | CRM | test de relation dbt (étape 3) |
-| `eol_product_in_quotes` : produit en fin de vie toujours vendu | 8 | PLM + CRM | mart dédié + test en `warn` (étape 3) |
-| `missing_catalog_description` : description commerciale vide | 25 | Catalogue | test de complétude (étape 3) |
-| `missing_from_catalog` : article ERP absent du catalogue | 40 | Catalogue | `mart_catalog_gaps` (étape 3) |
-| `duplicate_material` : même produit sous deux codes ERP | 4 | ERP | unicité de la référence constructeur (étape 3) |
-| `non_positive_price` : prix standard nul ou négatif | 5 | ERP | test d'expression (étape 3) |
+| `unknown_product_in_quotes` : article de devis absent de l'ERP | 6 | CRM | test de relation dbt |
+| `eol_product_in_quotes` : produit en fin de vie toujours vendu | 8 | PLM + CRM | mart dédié + test en `warn` |
+| `missing_catalog_description` : description commerciale vide | 25 | Catalogue | test de complétude |
+| `missing_from_catalog` : article ERP absent du catalogue | 40 | Catalogue | `mart_catalog_gaps` |
+| `duplicate_material` : même produit sous deux codes ERP | 4 | ERP | unicité de la référence constructeur |
+| `non_positive_price` : prix standard nul ou négatif | 5 | ERP | test d'expression |
 
 ## Incidents de livraison
 
 | Incident | Jour (défaut) | Effet | Détection prévue |
 |---|---|---|---|
-| `erp_missing_export` | 2026-10-18 | aucun fichier ERP ce jour-là ; `meta.load_log` en `skipped` | Elementary `freshness_anomalies` (étape 4) |
-| `quote_volume_drop` | 2026-10-24 | environ 3 devis au lieu de 25 | Elementary `volume_anomalies` (étape 4) |
-| `erp_renamed_column` | 2026-10-27 | `MAKTX` devient `MAKTX_LONG` dans MARA ; la colonne est ajoutée à raw | Elementary `schema_changes` (étape 4) |
+| `erp_missing_export` | 2026-10-18 | aucun fichier ERP ce jour-là ; `meta.load_log` en `skipped` | Elementary `volume_anomalies` + `freshness_anomalies` sur `raw.erp_mara` |
+| `quote_volume_drop` | 2026-10-24 | environ 3 devis au lieu de 25 | Elementary `volume_anomalies` sur `stg_crm__quotes` |
+| `erp_renamed_column` | 2026-10-27 | `MAKTX` devient `MAKTX_LONG` dans MARA ; la colonne est ajoutée à raw | Elementary `schema_changes_from_baseline` sur `raw.erp_mara` |
 
 Les volumes et les jours se règlent dans `sources/config.py`.
+
+`make check-anomalies` (script `scripts/check_anomalies.py`) vérifie les deux familles après chaque `dbt build`, et la CI échoue si l'une d'elles n'est plus détectée.

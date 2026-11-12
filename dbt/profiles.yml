@@ -11,3 +11,17 @@ product_data_hub:
       password: "{{ env_var('POSTGRES_PASSWORD') }}"
       schema: staging
       threads: 4
+
+# Profil lu par la CLI Elementary (`edr report`, `edr monitor`) : même base, schéma elementary.
+elementary:
+  target: default
+  outputs:
+    default:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      port: "{{ env_var('POSTGRES_PORT', '5433') | as_number }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'product_hub') }}"
+      user: "{{ env_var('POSTGRES_USER', 'hub_admin') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD') }}"
+      schema: elementary
+      threads: 4

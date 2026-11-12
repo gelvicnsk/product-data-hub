@@ -60,13 +60,13 @@ models:
       - name: lifecycle_changed_at
         data_type: timestamp
       - name: standard_price
-        data_type: numeric
+        data_type: numeric(18,3)
       - name: currency
         data_type: text
       - name: has_valid_price
         data_type: boolean
       - name: last_accepted_unit_price
-        data_type: numeric
+        data_type: numeric(18,2)
       - name: last_accepted_at
         data_type: timestamp with time zone
       - name: plm_part_number

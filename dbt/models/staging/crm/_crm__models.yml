@@ -7,6 +7,22 @@ models:
         data_tests: [unique, not_null]
 
   - name: stg_crm__quotes
+    config:
+      elementary:
+        timestamp_column: created_at
+    data_tests:
+      # nombre de devis créés par jour : une chute brutale signale un problème en amont.
+      # Les 14 jours examinés sont exclus de l'apprentissage : sinon la chute gonfle
+      # elle-même l'écart type qui sert à la juger (z = -2,99, sous le seuil de 3 ;
+      # avec l'exclusion, z = -3,71). Pas appliqué aux exports ERP : leur volume est
+      # constant, l'écart type d'apprentissage y vaudrait 0 et aucun score ne serait calculable.
+      - elementary.volume_anomalies:
+          arguments:
+            exclude_detection_period_from_training: true
+          config:
+            severity: warn
+            meta:
+              anomaly: quote_volume_drop
     columns:
       - name: quote_id
         data_tests: [unique, not_null]

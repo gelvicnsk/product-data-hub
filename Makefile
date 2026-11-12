@@ -14,7 +14,7 @@ DBT    := cd dbt && ../.venv/bin/dbt
 DATE   ?= 2026-10-01
 
 .PHONY: help env install up down reset ps logs generate ingest ingest-day test test-unit test-db \
-        test-integration lint format psql clean dbt-deps dbt-build dbt-docs check-anomalies pipeline
+        test-integration lint format psql clean dbt-deps dbt-build dbt-docs check-anomalies pipeline edr-report
 
 help: ## Affiche cette aide
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -69,10 +69,15 @@ dbt-build: ## Construit et teste tous les modèles dbt
 dbt-docs: ## Génère et sert la documentation dbt (lignage) sur http://localhost:8081
 	$(DBT) docs generate --profiles-dir . && $(DBT) docs serve --profiles-dir . --port 8081
 
+edr-report: ## Rapport d'observabilité Elementary -> data/edr/report.html
+	.venv/bin/edr report --profiles-dir dbt --project-dir dbt \
+	  --file-path data/edr/report.html --open-browser false
+	@echo "Ouvrir depuis Windows : explorer.exe \"$$(wslpath -w data/edr/report.html)\""
+
 check-anomalies: ## Vérifie que chaque anomalie injectée est détectée par son test
 	$(PYTHON) scripts/check_anomalies.py
 
-pipeline: generate ingest dbt-build check-anomalies ## Tout le pipeline : simulation, ingestion, dbt, contrôle
+pipeline: generate ingest dbt-build check-anomalies edr-report ## Tout le pipeline, jusqu'au rapport Elementary
 
 test: ## Tous les tests (unitaires + intégration)
 	$(PYTHON) -m pytest -q
@@ -102,5 +107,5 @@ psql: ## Ouvre psql sur la base de développement
 	docker compose exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
 clean: ## Supprime les données générées et les caches
-	rm -rf data/landing data/crm_db data/anomalies.json .pytest_cache .ruff_cache dbt/target dbt/logs
+	rm -rf data/landing data/crm_db data/anomalies.json .pytest_cache .ruff_cache dbt/target dbt/logs data/edr/report.html
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +

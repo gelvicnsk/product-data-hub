@@ -14,7 +14,7 @@ CRM type Salesforce, PLM et catalogue produit.
 | 1. Socle | Docker, PostgreSQL, générateurs de données, faux CRM | fait |
 | 2. Ingestion batch | chargement idempotent, registre de fichiers, watermark CRM | fait |
 | 3. dbt | staging, rapprochement, golden record, tests, contrôle des anomalies | fait |
-| 4. Elementary | observabilité, détection d'anomalies | à venir |
+| 4. Elementary | observabilité : volume, fraîcheur, changement de schéma, rapport | fait |
 | 5. Historisation | snapshots SCD type 2 | à venir |
 | 6. Airflow | DAG quotidien | à venir |
 | 7. API | FastAPI, SQLAlchemy 2.x, Alembic, Keycloak | à venir |
@@ -34,7 +34,8 @@ make test-db        # crée la base de test (une seule fois)
 make test           # tests unitaires + intégration
 make dbt-deps       # paquets dbt (une seule fois)
 make dbt-build      # modèles + tests dbt
-make check-anomalies  # chaque anomalie injectée est-elle détectée ?
+make check-anomalies  # chaque anomalie et chaque incident sont-ils détectés ?
+make edr-report     # rapport d'observabilité Elementary -> data/edr/report.html
 ```
 
 `make pipeline` enchaîne simulation, ingestion, dbt et contrôle des anomalies.
@@ -92,6 +93,27 @@ raw (texte, une partition par jour)
 - **Tester les tests** : `scripts/check_anomalies.py` compare les échecs de chaque test aux
   anomalies injectées (`data/anomalies.json`) ; un test de référence recalcule le chiffre
   d'affaires depuis le CRM et casse si une jointure perd ou duplique des lignes.
+
+## Observabilité (Elementary)
+
+Les tests dbt vérifient des règles écrites à la main. Elementary surveille en plus
+l'évolution des données dans le temps et détecte ce qu'aucune règle ne prévoyait :
+
+| Test Elementary | Table | Incident simulé détecté |
+|---|---|---|
+| `volume_anomalies` | `raw.erp_mara` | jour sans export ERP (0 ligne le 18/10) |
+| `freshness_anomalies` | `raw.erp_mara` | 48 h sans mise à jour après le 17/10 |
+| `schema_changes_from_baseline` | `raw.erp_mara` | colonne SAP renommée (`maktx_long` ajoutée le 27/10) |
+| `volume_anomalies` | `staging.stg_crm__quotes` | 2 devis le 24/10 au lieu de ~25 |
+
+- **Temps simulé** : Elementary juge « les derniers jours » par rapport à l'heure du run.
+  La variable `custom_run_started_at` (dbt_project.yml, surchargeable par `PIPELINE_RUN_AT`)
+  place ce « maintenant » au lendemain de la dernière journée simulée.
+- **Fenêtres** : 30 jours d'historique, 14 derniers jours examinés, seuil de 3 écarts types.
+- **Réglage justifié** : pour les devis, les jours examinés sont exclus de l'apprentissage ;
+  sinon la chute gonfle elle-même l'écart type (z = -2,99, sous le seuil). Pas pour l'ERP :
+  son volume est constant, l'écart type d'apprentissage vaudrait 0 et aucun score ne serait
+  calculable.
 
 ## Structure
 

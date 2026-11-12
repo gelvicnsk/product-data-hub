@@ -7,9 +7,13 @@ Compare :
   - dbt/target/manifest.json       : quel test surveille quelle anomalie (config.meta.anomaly) ;
   - dbt/target/run_results.json    : combien de lignes chaque test a remontées.
 
-Code retour 1 si une anomalie n'est pas détectée, ou pas avec le bon nombre.
-Les incidents de livraison (export manquant, colonne renommée, chute de volume)
-seront couverts par Elementary à l'étape 4 : ils sont listés à part.
+Deux familles :
+  - anomalies de données (tests dbt) : le nombre de lignes signalées doit être égal
+    au nombre injecté ;
+  - incidents de livraison (tests Elementary : volume, fraîcheur, schéma) : le test
+    doit signaler l'incident (au moins un échec).
+
+Code retour 1 si une anomalie ou un incident n'est pas détecté correctement.
 """
 
 from __future__ import annotations
@@ -56,9 +60,16 @@ def main() -> int:
         names = ", ".join(t for t, _ in tests) or "aucun test ne surveille cette anomalie"
         print(f"{status}{anomaly:<27} {expected:>9} {found:>9}  {names}")
 
-    print("\nIncidents de livraison (surveillance Elementary, étape 4) :")
+    print(f"\n{'incident (Elementary)':<30} {'jour':>10}  tests qui le signalent")
     for incident, day in sorted(injected.get("incidents", {}).items()):
-        print(f"    {incident:<27} {day}")
+        tests = detected.get(incident, [])
+        flagged = [t for t, n in tests if n > 0]
+        status = "OK " if flagged else "KO "
+        ok &= bool(flagged)
+        names = ", ".join(flagged) or (
+            "aucun test ne le signale" if tests else "aucun test ne surveille cet incident"
+        )
+        print(f"{status}{incident:<27} {day:>10}  {names}")
 
     if ok:
         print("\nToutes les anomalies sont détectées.")
