@@ -1,0 +1,27 @@
+# secrets
+.env
+k8s/**/secret.yaml
+
+# environnement Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# données générées (on garde la structure des dossiers)
+data/**
+!data/**/
+!data/**/.gitkeep
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml
+
+# Elementary et divers
+edr_target/
+logs/
+*.duckdb
+*.duckdb.wal
