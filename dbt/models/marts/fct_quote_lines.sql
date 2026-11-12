@@ -62,8 +62,8 @@ select
     plm.lifecycle_state                                          as lifecycle_state_at_quote,
     coalesce(plm.lifecycle_state in ('END_OF_LIFE', 'RETIRED'), false) as is_eol_at_quote,
     cost.standard_price                                          as unit_cost_at_quote,
-    base.quantity * cost.standard_price                          as line_cost,
-    base.line_amount - base.quantity * cost.standard_price       as line_margin
+    (base.quantity * cost.standard_price)::numeric(18, 2)        as line_cost,
+    (base.line_amount - base.quantity * cost.standard_price)::numeric(18, 2) as line_margin
 from base
 left join {{ ref('stg_plm__lifecycle') }} as plm
     on plm.material_id = base.material_id

@@ -15,6 +15,7 @@ dependencies = [
     "sqlalchemy>=2.0,<2.2",
     "alembic>=1.13",
     "PyJWT[crypto]>=2.8",
+    "duckdb>=1.1",
     # dbt 1.11 : version que la dernière version d'Elementary déclare compatible (étape 4)
     "dbt-core>=1.11,<1.12",
     "dbt-postgres>=1.11,<1.12",

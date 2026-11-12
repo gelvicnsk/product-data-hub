@@ -17,7 +17,7 @@ select
     list_price::numeric(18, 2)                  as list_price,
     discount::numeric(5, 2)                     as discount_pct,
     unit_price::numeric(18, 2)                  as unit_price,
-    quantity::integer * unit_price::numeric(18, 2) as line_amount,
+    (quantity::integer * unit_price::numeric(18, 2))::numeric(18, 2) as line_amount,
     created_date::timestamptz                   as created_at
 from versions
 where version_rank = 1

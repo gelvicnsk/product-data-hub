@@ -22,6 +22,7 @@ CRM type Salesforce, PLM et catalogue produit.
 | 7. Sécurité | Keycloak 26 (OIDC), rôles `reader` et `data_steward` | fait |
 | 8. Orchestration | Airflow 3 : DAG quotidien avec rattrapage jour par jour | fait |
 | 9. Kubernetes | kind + kustomize : StatefulSet, Deployments, Job, CronJob | fait |
+| Bonus | export Parquet + DuckDB pour l'analyse locale | fait |
 
 ## Démarrage rapide (WSL / Linux)
 
@@ -156,6 +157,14 @@ traite les demandes de correction.
 par run, « comme à cette date » (`as_of_date = {{ ds }}`). Avec `catchup` et
 `max_active_runs=1`, l'activation du DAG rejoue les 30 journées dans l'ordre. dbt et
 l'ingestion tournent dans un environnement Python séparé de celui d'Airflow.
+
+## Analyse locale (Parquet + DuckDB)
+
+`make analytics` exporte les marts et les snapshots en Parquet et dans une base DuckDB
+autonome (`data/analytics/hub.duckdb`), en conservant les types PostgreSQL (DECIMAL, DATE,
+TIMESTAMPTZ...) et la différence entre NULL et chaîne vide. Écritures atomiques (fichier
+temporaire puis renommage) : un notebook ouvert ne lit jamais un fichier à moitié écrit.
+`make duckdb-demo` lance quelques requêtes : lecture directe de Parquet, QUALIFY, PIVOT.
 
 ## Kubernetes
 

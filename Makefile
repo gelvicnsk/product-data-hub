@@ -15,7 +15,7 @@ DATE   ?= 2026-10-01
 
 .PHONY: help env env-upgrade install up down reset ps logs generate ingest ingest-day test test-unit \
         test-db test-integration lint format psql clean dbt-deps dbt-build dbt-docs check-anomalies \
-        pipeline edr-report init-db snapshot-replay api-local token airflow-up airflow-down k8s-up k8s-down
+        pipeline edr-report analytics duckdb-demo init-db snapshot-replay api-local token airflow-up airflow-down k8s-up k8s-down
 
 help: ## Affiche cette aide
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -117,6 +117,12 @@ k8s-up: ## Déploie sur un cluster Kubernetes local (kind)
 
 k8s-down: ## Supprime le cluster Kubernetes local
 	scripts/k8s_down.sh
+
+analytics: ## Exporte marts et snapshots en Parquet + DuckDB (data/analytics/)
+	$(PYTHON) -m analytics.export_duckdb
+
+duckdb-demo: ## Requêtes d'analyse DuckDB sur l'export (lancer make analytics avant)
+	$(PYTHON) -m analytics.demo_queries
 
 check-anomalies: ## Vérifie que chaque anomalie injectée est détectée par son test
 	$(PYTHON) scripts/check_anomalies.py
