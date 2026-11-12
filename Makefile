@@ -38,7 +38,7 @@ env: ## Crée .env à partir de .env.example, avec des mots de passe aléatoires
 
 env-upgrade: ## Ajoute à un .env existant les variables des étapes 5 à 8 (mots de passe générés)
 	@for var in API_WRITER_DB_USER=api_writer API_WRITER_DB_PASSWORD=$$(openssl rand -hex 16) \
-	  API_PORT=8001 AUTH_ENABLED=true KEYCLOAK_PORT=8180 KEYCLOAK_ADMIN_PASSWORD=$$(openssl rand -hex 12) \
+	  API_PORT=8002 AUTH_ENABLED=true KEYCLOAK_PORT=8180 KEYCLOAK_ADMIN_PASSWORD=$$(openssl rand -hex 12) \
 	  KC_DEMO_READER_PASSWORD=$$(openssl rand -hex 8) KC_DEMO_STEWARD_PASSWORD=$$(openssl rand -hex 8) \
 	  AIRFLOW_PORT=8082; do \
 	  key=$${var%%=*}; grep -q "^$$key=" .env || { echo "$$var" >> .env; echo "ajouté : $$key"; }; \
@@ -97,7 +97,7 @@ snapshot-replay: ## Rejoue les snapshots SCD2 jour par jour (comme le rattrapage
 	  echo "== snapshot au $$day"; (cd dbt && ../.venv/bin/dbt snapshot --profiles-dir . -q --vars "{as_of_date: $$day}") || exit 1; \
 	done
 
-api-local: ## Lance l'API hors Docker (rechargement auto) sur http://localhost:8001/docs
+api-local: ## Lance l'API hors Docker (rechargement auto) sur http://localhost:8002/docs
 	.venv/bin/alembic -c api/alembic.ini upgrade head
 	KEYCLOAK_ISSUER=http://localhost:$(KEYCLOAK_PORT)/realms/product-hub \
 	  .venv/bin/uvicorn api.main:app --reload --port $(API_PORT)

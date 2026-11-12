@@ -1,6 +1,6 @@
 # Cluster local à un nœud (kind = Kubernetes dans Docker).
 # Les ports NodePort de l'API et de Keycloak sont publiés sur la machine (WSL / Windows).
-# Ports différents de docker-compose (8001, 8180) pour pouvoir garder les deux.
+# Ports différents de docker-compose (8002, 8180) pour pouvoir garder les deux.
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: product-hub

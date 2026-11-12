@@ -105,7 +105,7 @@ services:
       KEYCLOAK_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/product-hub
       KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/product-hub/protocol/openid-connect/certs
     ports:
-      - "${API_PORT:-8001}:8000"
+      - "${API_PORT:-8002}:8000"
     depends_on:
       api-migrate:
         condition: service_completed_successfully

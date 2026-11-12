@@ -2,7 +2,7 @@
 # Obtient un jeton d'accès Keycloak pour un utilisateur de démonstration.
 #   TOKEN=$(scripts/get_token.sh alice)     # rôle reader
 #   TOKEN=$(scripts/get_token.sh bob)       # rôle data_steward
-#   curl -H "Authorization: Bearer $TOKEN" localhost:8001/products
+#   curl -H "Authorization: Bearer $TOKEN" localhost:8002/products
 # Les mots de passe viennent de .env (KC_DEMO_READER_PASSWORD, KC_DEMO_STEWARD_PASSWORD).
 set -euo pipefail
 

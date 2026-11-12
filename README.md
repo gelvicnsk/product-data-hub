@@ -1,5 +1,7 @@
 # Product Data Hub
 
+[![CI](https://github.com/gelvicnsk/product-data-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/gelvicnsk/product-data-hub/actions/workflows/ci.yml)
+
 Projet personnel de Data Engineering : construire un **référentiel produit unifié**
 (*golden record*) à partir de quatre systèmes d'entreprise simulés : ERP type SAP,
 CRM type Salesforce, PLM et catalogue produit.
@@ -38,7 +40,7 @@ make test-db && make test
 
 | Service | URL |
 |---|---|
-| API (Swagger) | http://localhost:8001/docs |
+| API (Swagger) | http://localhost:8002/docs |
 | Keycloak | http://localhost:8180 (admin / `KEYCLOAK_ADMIN_PASSWORD`) |
 | Airflow (`make airflow-up`) | http://localhost:8082 |
 | Rapport Elementary (`make edr-report`) | `data/edr/report.html` |
@@ -47,7 +49,7 @@ Appeler l'API avec un jeton :
 
 ```bash
 TOKEN=$(make -s token WHO=alice)      # bob = data_steward
-curl -s -H "Authorization: Bearer $TOKEN" "localhost:8001/products?family=Stockage&page_size=3"
+curl -s -H "Authorization: Bearer $TOKEN" "localhost:8002/products?family=Stockage&page_size=3"
 ```
 
 ## Les sources simulées

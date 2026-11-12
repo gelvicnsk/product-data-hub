@@ -14,5 +14,5 @@ check() {   # nom, commande
 check "postgres"  "docker compose exec -T postgres pg_isready -U ${POSTGRES_USER:-hub_admin}"
 check "faux CRM"  "curl -sf localhost:${MOCK_CRM_PORT:-8010}/health"
 check "keycloak"  "curl -sf localhost:${KEYCLOAK_PORT:-8180}/realms/product-hub"
-check "api"       "curl -sf localhost:${API_PORT:-8001}/health"
+check "api"       "curl -sf localhost:${API_PORT:-8002}/health"
 exit $ko

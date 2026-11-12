@@ -1,6 +1,6 @@
 """API du Product Data Hub.
 
-uvicorn api.main:app --port 8001        # documentation interactive : /docs
+uvicorn api.main:app --port 8002        # documentation interactive : /docs
 """
 
 from __future__ import annotations
