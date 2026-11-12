@@ -25,3 +25,6 @@ edr_target/
 logs/
 *.duckdb
 *.duckdb.wal
+
+# paquet installé en mode éditable
+*.egg-info/
