@@ -1,0 +1,21 @@
+# Configuration non secrète, partagée par les pods.
+# Les secrets (mots de passe) sont dans le Secret product-hub-secrets, créé depuis .env
+# par scripts/k8s_up.sh : jamais dans le dépôt (voir secret.example.yaml).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-hub-config
+data:
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: product_hub
+  CRM_API_URL: http://mock-crm:8010
+  LANDING_DIR: /data/landing
+  CRM_DB_DIR: /data/crm_db
+  SIM_START_DATE: "2026-10-01"
+  SIM_DAYS: "30"
+  AUTH_ENABLED: "true"
+  # émetteur public des jetons (URL vue depuis le navigateur / curl) ...
+  KEYCLOAK_ISSUER: http://localhost:9180/realms/product-hub
+  # ... et adresse interne au cluster pour récupérer les clés publiques
+  KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/product-hub/protocol/openid-connect/certs

@@ -1,7 +1,7 @@
 -- Nomenclatures (dernier export) : un composant d'un système. Grain : (parent, position).
 
 with latest as (
-    select max(_extract_date) as extract_date from {{ source('erp', 'erp_stpo') }}
+    select {{ as_of_partition(source('erp', 'erp_stpo')) }} as extract_date
 )
 
 select

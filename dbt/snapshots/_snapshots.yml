@@ -1,0 +1,15 @@
+version: 2
+
+snapshots:
+  - name: snap_material_price
+    description: Versions successives du prix standard ERP (SCD type 2), datées par journée d'export.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [price_key, dbt_valid_from]
+  - name: snap_product_lifecycle
+    description: Versions successives de l'état PLM (SCD type 2), datées par journée d'export.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [part_number, dbt_valid_from]

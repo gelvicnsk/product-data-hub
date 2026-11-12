@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: product-hub
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - data-pvc.yaml
+  - postgres/statefulset.yaml
+  - postgres/service.yaml
+  - mock-crm/deployment.yaml
+  - mock-crm/service.yaml
+  - keycloak/deployment.yaml
+  - keycloak/service.yaml
+  - api/deployment.yaml
+  - api/service.yaml
+  - pipeline/job.yaml
+  - pipeline/cronjob.yaml
+
+# Les fichiers de configuration viennent de infra/ (une seule source de vérité) :
+# kustomize doit donc être lancé avec --load-restrictor LoadRestrictionsNone
+# (fait par scripts/k8s_up.sh).
+configMapGenerator:
+  - name: postgres-init
+    files:
+      - 01-init.sql=../../infra/postgres/init.sql
+  - name: keycloak-realm
+    files:
+      - realm-product-hub.json=../../infra/keycloak/realm-product-hub.json
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: product-data-hub

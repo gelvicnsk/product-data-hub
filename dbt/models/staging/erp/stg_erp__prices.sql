@@ -10,5 +10,8 @@ select
     nullif(peinh, '')::integer               as price_unit,
     waers                                    as currency,
     _extract_date                            as extract_date,
-    _extract_date = max(_extract_date) over () as is_latest_extract
+    _extract_date = {{ as_of_partition(source('erp', 'erp_mbew')) }} as is_latest_extract
 from {{ source('erp', 'erp_mbew') }}
+{%- if var('as_of_date', none) %}
+where _extract_date <= '{{ var("as_of_date") }}'::date
+{%- endif %}

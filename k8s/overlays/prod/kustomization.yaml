@@ -1,0 +1,8 @@
+# Exemple d'environnement « prod » : plusieurs réplicas de l'API.
+# (Postgres et Keycloak resteraient des services managés ou des opérateurs dédiés.)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  - path: patch-replicas.yaml

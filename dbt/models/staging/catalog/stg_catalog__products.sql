@@ -2,7 +2,7 @@
 -- Environ 5 % des fiches n'ont pas de SKU : elles seront rapprochées par la référence constructeur.
 
 with latest as (
-    select max(_extract_date) as extract_date from {{ source('catalog', 'catalog_products') }}
+    select {{ as_of_partition(source('catalog', 'catalog_products')) }} as extract_date
 )
 
 select

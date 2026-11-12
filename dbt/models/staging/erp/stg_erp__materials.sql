@@ -1,7 +1,7 @@
 -- Référentiel article ERP, état du dernier export reçu. Grain : un article (material_id).
 
 with latest as (
-    select max(_extract_date) as extract_date from {{ source('erp', 'erp_mara') }}
+    select {{ as_of_partition(source('erp', 'erp_mara')) }} as extract_date
 ),
 
 mara as (

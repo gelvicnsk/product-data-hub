@@ -15,33 +15,40 @@ CRM type Salesforce, PLM et catalogue produit.
 | 2. Ingestion batch | chargement idempotent, registre de fichiers, watermark CRM | fait |
 | 3. dbt | staging, rapprochement, golden record, tests, contrôle des anomalies | fait |
 | 4. Elementary | observabilité : volume, fraîcheur, changement de schéma, rapport | fait |
-| 5. Historisation | snapshots SCD type 2 | à venir |
-| 6. Airflow | DAG quotidien | à venir |
-| 7. API | FastAPI, SQLAlchemy 2.x, Alembic, Keycloak | à venir |
-| 8. Kubernetes | déploiement avec kind + kustomize | à venir |
+| 5. Historisation | snapshots SCD type 2 datés par journée métier | fait |
+| 6. API | FastAPI, SQLAlchemy 2.x, Alembic, deux rôles PostgreSQL | fait |
+| 7. Sécurité | Keycloak 26 (OIDC), rôles `reader` et `data_steward` | fait |
+| 8. Orchestration | Airflow 3 : DAG quotidien avec rattrapage jour par jour | fait |
+| 9. Kubernetes | kind + kustomize : StatefulSet, Deployments, Job, CronJob | fait |
 
 ## Démarrage rapide (WSL / Linux)
 
-Prérequis : Docker, Python 3.11+, `make`, `openssl`.
+Prérequis : Docker, Python 3.11+, `make`, `openssl` (et `kind`, `kubectl` pour Kubernetes).
 
 ```bash
-make env            # crée .env avec des mots de passe aléatoires
+make env            # .env avec des mots de passe aléatoires
 make install        # environnement virtuel .venv
-make generate       # simule 30 journées des 4 sources -> data/landing, data/crm_db
-make up             # PostgreSQL (port 5433) + faux CRM (port 8010)
-make ingest         # charge toutes les journées dans le schéma raw
-make test-db        # crée la base de test (une seule fois)
-make test           # tests unitaires + intégration
-make dbt-deps       # paquets dbt (une seule fois)
-make dbt-build      # modèles + tests dbt
+make generate       # simule 30 journées des 4 sources
+make up             # PostgreSQL, faux CRM, Keycloak, migrations, API
+make ingest         # charge les journées dans raw
+make dbt-deps && make dbt-build
 make check-anomalies  # chaque anomalie et chaque incident sont-ils détectés ?
-make edr-report     # rapport d'observabilité Elementary -> data/edr/report.html
+make test-db && make test
 ```
 
-`make pipeline` enchaîne simulation, ingestion, dbt et contrôle des anomalies.
+| Service | URL |
+|---|---|
+| API (Swagger) | http://localhost:8001/docs |
+| Keycloak | http://localhost:8180 (admin / `KEYCLOAK_ADMIN_PASSWORD`) |
+| Airflow (`make airflow-up`) | http://localhost:8082 |
+| Rapport Elementary (`make edr-report`) | `data/edr/report.html` |
 
-Ensuite : `make psql`, puis par exemple
-`SELECT * FROM meta.load_log ORDER BY load_id DESC LIMIT 10;`
+Appeler l'API avec un jeton :
+
+```bash
+TOKEN=$(make -s token WHO=alice)      # bob = data_steward
+curl -s -H "Authorization: Bearer $TOKEN" "localhost:8001/products?family=Stockage&page_size=3"
+```
 
 ## Les sources simulées
 
@@ -115,15 +122,54 @@ l'évolution des données dans le temps et détecte ce qu'aucune règle ne prév
   son volume est constant, l'écart type d'apprentissage vaudrait 0 et aucun score ne serait
   calculable.
 
+## Historisation (snapshots dbt)
+
+`snap_material_price` et `snap_product_lifecycle` gardent une version par changement
+(SCD type 2). Stratégie `check` avec `updated_at` = journée d'export : `dbt_valid_from` porte la
+**date métier** du changement, pas l'heure du run. Rejouer l'historique (`make snapshot-replay`,
+ou le rattrapage Airflow) donne donc les bonnes dates. Un test vérifie que le prix courant du
+snapshot est égal à celui de `fct_price_history`, reconstruit indépendamment.
+
+## API
+
+- **FastAPI + SQLAlchemy 2.x** (`Mapped[...]`, `select()`), schémas Pydantic distincts des tables.
+- Routes : `/products` (filtres, recherche, pagination), `/products/{id}/price-history`,
+  `/quality/summary`, `/quality/catalog-gaps`, `/quality/eol-quotes`, `/corrections`.
+- **Moindre privilège** : lecture avec `api_reader` (marts en lecture seule), écriture avec
+  `api_writer` (schéma `app` uniquement) ; les migrations tournent avec le rôle propriétaire.
+- **Alembic** ne gère que le schéma `app` (demandes de correction) ; les marts appartiennent à dbt.
+  La CI vérifie que modèles ORM et migrations sont synchronisés (`alembic check`).
+
+## Sécurité (Keycloak)
+
+Realm `product-hub` importé au démarrage (`infra/keycloak/realm-product-hub.json`) ; les mots
+de passe des utilisateurs de démo y sont injectés depuis `.env` (`${KC_DEMO_...}`).
+L'API vérifie la signature RS256 (clés JWKS en cache), l'émetteur, l'audience
+(`product-hub-api`) et l'expiration, puis le rôle : `reader` lit, `data_steward` crée et
+traite les demandes de correction.
+
+## Orchestration (Airflow)
+
+`dags/product_hub_daily.py` : `ingest → dbt_snapshot → dbt_build → quality_gate`, une journée
+par run, « comme à cette date » (`as_of_date = {{ ds }}`). Avec `catchup` et
+`max_active_runs=1`, l'activation du DAG rejoue les 30 journées dans l'ordre. dbt et
+l'ingestion tournent dans un environnement Python séparé de celui d'Airflow.
+
+## Kubernetes
+
+`make k8s-up` : cluster kind, images chargées localement, Secret créé depuis `.env`,
+manifestes kustomize (overlays `dev` et `prod`). Voir [docs/kubernetes.md](docs/kubernetes.md).
+
 ## Structure
 
 ```
 sources/      simulation des systèmes source + faux CRM (FastAPI)
 ingestion/    extraction et chargement dans raw
-dbt/          transformation (étape 3)
-dags/         orchestration Airflow (étape 6)
-api/          API d'exposition (étape 7)
-k8s/          déploiement Kubernetes (étape 8)
-infra/        initialisation PostgreSQL, images
+dbt/          staging, intermediate, marts, snapshots, tests, Elementary
+api/          API FastAPI, modèles SQLAlchemy, migrations Alembic, authentification
+dags/         DAG Airflow
+k8s/          déploiement Kubernetes (kind + kustomize)
+infra/        PostgreSQL (init.sql), Keycloak (realm), images Airflow et pipeline
+scripts/      contrôle des anomalies, jeton Keycloak, déploiement Kubernetes
 tests/        unit/ (sans base) et integration/ (base de test dédiée)
 ```

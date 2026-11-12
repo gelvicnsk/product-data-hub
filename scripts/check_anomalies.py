@@ -19,6 +19,7 @@ Code retour 1 si une anomalie ou un incident n'est pas détecté correctement.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -27,14 +28,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def load(path: Path) -> dict:
     if not path.exists():
-        sys.exit(f"Fichier introuvable : {path.relative_to(ROOT)} (lancer la simulation et dbt build)")
+        sys.exit(f"Fichier introuvable : {path} (lancer la simulation et dbt build)")
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def main() -> int:
-    injected = load(ROOT / "data" / "anomalies.json")
-    manifest = load(ROOT / "dbt" / "target" / "manifest.json")
-    results = load(ROOT / "dbt" / "target" / "run_results.json")
+    # chemins surchargeables (image Kubernetes : résultats dbt sur le volume /data)
+    anomalies_file = Path(os.getenv("ANOMALIES_FILE", ROOT / "data" / "anomalies.json"))
+    target_dir = Path(os.getenv("DBT_TARGET_DIR", ROOT / "dbt" / "target"))
+    injected = load(anomalies_file)
+    manifest = load(target_dir / "manifest.json")
+    results = load(target_dir / "run_results.json")
 
     # test -> anomalie surveillée
     watched: dict[str, str] = {}

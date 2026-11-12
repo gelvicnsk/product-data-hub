@@ -12,5 +12,8 @@ select
     state_changed_at::timestamp                         as state_changed_at,
     owner_team,
     _extract_date                                       as extract_date,
-    _extract_date = max(_extract_date) over ()          as is_latest_extract
+    _extract_date = {{ as_of_partition(source('plm', 'plm_lifecycle')) }} as is_latest_extract
 from {{ source('plm', 'plm_lifecycle') }}
+{%- if var('as_of_date', none) %}
+where _extract_date <= '{{ var("as_of_date") }}'::date
+{%- endif %}

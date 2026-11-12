@@ -9,7 +9,9 @@
 | `intermediate` | rapprochement des identifiants, règles de gestion | dbt |
 | `marts` | tables exposées (lues par l'API avec le rôle `api_reader`) | dbt |
 | `meta` | `load_log`, `processed_files`, `extract_watermark` | ingestion |
-| `app` | base applicative de l'API (étape 7, Alembic) | API |
+| `snapshots` | historique SCD type 2 (prix, cycle de vie) | dbt snapshot |
+| `elementary` | résultats de tests, métriques, historique des runs | Elementary |
+| `app` | demandes de correction (`correction_request`), versionnées par Alembic | API |
 
 ## Identifiants d'un même produit
 

@@ -1,0 +1,83 @@
+{
+  "realm": "product-hub",
+  "displayName": "Product Data Hub",
+  "enabled": true,
+  "sslRequired": "external",
+  "accessTokenLifespan": 900,
+  "registrationAllowed": false,
+  "roles": {
+    "realm": [
+      {
+        "name": "reader",
+        "description": "Lecture du golden record produit et des indicateurs qualité"
+      },
+      {
+        "name": "data_steward",
+        "description": "reader + création et revue des demandes de correction",
+        "composite": true,
+        "composites": { "realm": ["reader"] }
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "product-hub-api",
+      "name": "API Product Data Hub (ressource protégée)",
+      "description": "Audience attendue dans les jetons ; ce client ne délivre pas de jetons lui-même.",
+      "enabled": true,
+      "bearerOnly": true,
+      "publicClient": false,
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "product-hub-cli",
+      "name": "Client de démonstration (curl, Swagger)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:8001/*"],
+      "webOrigins": ["http://localhost:8001"],
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "audience-product-hub-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "product-hub-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "email": "alice@product-hub.example",
+      "firstName": "Alice",
+      "lastName": "Lecture",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "${KC_DEMO_READER_PASSWORD}", "temporary": false }
+      ],
+      "realmRoles": ["reader"]
+    },
+    {
+      "username": "bob",
+      "email": "bob@product-hub.example",
+      "firstName": "Bob",
+      "lastName": "Steward",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "${KC_DEMO_STEWARD_PASSWORD}", "temporary": false }
+      ],
+      "realmRoles": ["data_steward"]
+    }
+  ]
+}

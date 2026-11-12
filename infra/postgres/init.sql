@@ -10,16 +10,37 @@ SET client_min_messages = warning;
 -- Le mot de passe du rôle API vient de l'environnement, jamais du dépôt.
 \getenv api_password API_DB_PASSWORD
 \getenv api_user API_DB_USER
+\getenv writer_password API_WRITER_DB_PASSWORD
+\getenv writer_user API_WRITER_DB_USER
 
-SELECT (:'api_password' = '' OR :'api_password' = ':api_password') AS missing_api_password \gset
+-- :{?var} vaut vrai si la variable psql existe (\getenv ne la crée pas si l'env est absent)
+\if :{?api_password}
+\else
+    \set api_password ''
+\endif
+SELECT :'api_password' = '' AS missing_api_password \gset
 \if :missing_api_password
     -- ON_ERROR_STOP : l'exception arrête le script avec un code d'erreur
     DO $$ BEGIN RAISE EXCEPTION 'API_DB_PASSWORD est vide ou absente : initialisation arrêtée'; END $$;
 \endif
 
-SELECT (:'api_user' = '' OR :'api_user' = ':api_user') AS missing_api_user \gset
-\if :missing_api_user
+\if :{?api_user}
+\else
     \set api_user api_reader
+\endif
+
+\if :{?writer_password}
+\else
+    \set writer_password ''
+\endif
+SELECT :'writer_password' = '' AS missing_writer_password \gset
+\if :missing_writer_password
+    DO $$ BEGIN RAISE EXCEPTION 'API_WRITER_DB_PASSWORD est vide ou absente : initialisation arrêtée'; END $$;
+\endif
+
+\if :{?writer_user}
+\else
+    \set writer_user api_writer
 \endif
 
 -- --- Schémas, de la donnée brute à la donnée exposée -------------------------
@@ -78,3 +99,23 @@ GRANT USAGE ON SCHEMA marts, meta TO :"api_user";
 GRANT SELECT ON ALL TABLES IN SCHEMA marts, meta TO :"api_user";
 -- Les tables que dbt créera plus tard dans marts seront lisibles automatiquement
 ALTER DEFAULT PRIVILEGES IN SCHEMA marts GRANT SELECT ON TABLES TO :"api_user";
+
+-- --- Rôle d'écriture de l'API : uniquement le schéma app -------------------------
+-- Les tables de app sont créées par Alembic (avec le rôle propriétaire) ; les
+-- privilèges par défaut ci-dessous les rendent accessibles à ce rôle dès leur création.
+SELECT format('CREATE ROLE %I LOGIN', :'writer_user')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'writer_user') \gexec
+
+ALTER ROLE :"writer_user" WITH LOGIN PASSWORD :'writer_password';
+
+GRANT CONNECT ON DATABASE :"DBNAME" TO :"writer_user";
+GRANT USAGE ON SCHEMA app TO :"writer_user";
+GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA app TO :"writer_user";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO :"writer_user";
+ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT SELECT, INSERT, UPDATE ON TABLES TO :"writer_user";
+ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO :"writer_user";
+
+-- --- Base de métadonnées d'Airflow ------------------------------------------------
+SELECT 'CREATE DATABASE airflow'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'airflow')
+  AND current_database() <> 'airflow' \gexec

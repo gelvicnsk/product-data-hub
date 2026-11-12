@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-crm
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: mock-crm}
+  template:
+    metadata:
+      labels: {app: mock-crm}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: mock-crm
+          image: product-hub/mock-crm:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8010
+          envFrom:
+            - configMapRef: {name: product-hub-config}
+          readinessProbe:
+            httpGet: {path: /health, port: 8010}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 512Mi}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: product-hub-data

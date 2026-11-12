@@ -37,7 +37,9 @@ jobs:
       POSTGRES_USER: hub_admin
       POSTGRES_PASSWORD: ci_password
       POSTGRES_TEST_DB: product_hub_test
-      API_DB_PASSWORD: ci_api_password   # mot de passe jetable, uniquement pour la CI
+      # mots de passe jetables, uniquement pour la CI
+      API_DB_PASSWORD: ci_api_password
+      API_WRITER_DB_PASSWORD: ci_writer_password
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -76,7 +78,9 @@ jobs:
       POSTGRES_DB: product_hub
       POSTGRES_USER: hub_admin
       POSTGRES_PASSWORD: ci_password
-      API_DB_PASSWORD: ci_api_password   # mot de passe jetable, uniquement pour la CI
+      # mots de passe jetables, uniquement pour la CI
+      API_DB_PASSWORD: ci_api_password
+      API_WRITER_DB_PASSWORD: ci_writer_password
       CRM_API_URL: http://localhost:8010
     steps:
       - uses: actions/checkout@v4
@@ -97,11 +101,15 @@ jobs:
           for i in $(seq 1 30); do curl -sf localhost:8010/health && break; sleep 1; done
       - name: Ingestion
         run: python -m ingestion.run --all
-      - name: dbt build
+      - name: dbt build (dont snapshots et tests Elementary)
         working-directory: dbt
         run: |
           dbt deps --profiles-dir .
           dbt build --profiles-dir .
+      - name: Migrations Alembic (schéma app) et vérification modèle = migrations
+        run: |
+          alembic -c api/alembic.ini upgrade head
+          alembic -c api/alembic.ini check
       - name: Chaque anomalie et chaque incident sont-ils détectés ?
         run: python scripts/check_anomalies.py
       - name: Rapport Elementary
@@ -114,3 +122,34 @@ jobs:
             dbt/target/run_results.json
             dbt/target/manifest.json
             data/edr/report.html
+
+  airflow-dag:
+    # Airflow dans son propre environnement, comme dans l'image : on vérifie que le DAG se charge
+    runs-on: ubuntu-latest
+    env:
+      AIRFLOW_HOME: /tmp/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "apache-airflow==3.4.0" apache-airflow-providers-standard pytest
+      - run: airflow db migrate
+      - run: pytest -q --noconftest tests/unit/test_dag.py
+
+  k8s-manifests:
+    # les manifestes s'assemblent (kustomize) et respectent le schéma Kubernetes (kubeconform)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Outils
+        run: |
+          curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.7.1/kustomize_v5.7.1_linux_amd64.tar.gz" | tar xz
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz | tar xz
+      - name: kustomize build + kubeconform
+        run: |
+          for overlay in dev prod; do
+            ./kustomize build --load-restrictor LoadRestrictionsNone k8s/overlays/$overlay > $overlay.yaml
+          done
+          ./kubeconform -strict -summary -kubernetes-version 1.33.0 dev.yaml prod.yaml

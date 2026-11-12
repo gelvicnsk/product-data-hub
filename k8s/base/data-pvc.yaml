@@ -1,0 +1,11 @@
+# Volume partagé : fichiers déposés par les sources simulées et base du faux CRM.
+# ReadWriteOnce suffit : kind n'a qu'un nœud, tous les pods y tournent.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: product-hub-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi

@@ -1,9 +1,9 @@
-# Environnement de développement local.
-# Le déploiement se fera sur Kubernetes (dossier k8s/), à une étape ultérieure.
+# Environnement de développement local (le déploiement se fait sur Kubernetes : dossier k8s/).
 #
-#   make up        -> postgres + faux CRM
-#   make down      -> arrêt (les données restent dans le volume)
-#   make reset     -> arrêt + suppression du volume
+#   make up          -> postgres, faux CRM, Keycloak, migrations Alembic, API
+#   make airflow-up  -> + Airflow (profil « airflow », plus gourmand en mémoire)
+#   make down        -> arrêt (les données restent dans le volume)
+#   make reset       -> arrêt + suppression du volume
 
 name: product-data-hub
 
@@ -17,6 +17,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant dans .env}
       API_DB_USER: ${API_DB_USER:-api_reader}
       API_DB_PASSWORD: ${API_DB_PASSWORD:?API_DB_PASSWORD manquant dans .env}
+      API_WRITER_DB_USER: ${API_WRITER_DB_USER:-api_writer}
+      API_WRITER_DB_PASSWORD: ${API_WRITER_DB_PASSWORD:?API_WRITER_DB_PASSWORD manquant dans .env}
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
@@ -45,6 +47,104 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6.0
+    command: ["start-dev", "--import-realm"]
+    restart: unless-stopped
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD manquant dans .env}
+      # URL publique : les jetons portent cet émetteur (iss), même demandés depuis le réseau Docker
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8180}
+      KC_HEALTH_ENABLED: "true"
+      # mots de passe des utilisateurs de démo, injectés dans le realm à l'import
+      KC_DEMO_READER_PASSWORD: ${KC_DEMO_READER_PASSWORD:?KC_DEMO_READER_PASSWORD manquant dans .env}
+      KC_DEMO_STEWARD_PASSWORD: ${KC_DEMO_STEWARD_PASSWORD:?KC_DEMO_STEWARD_PASSWORD manquant dans .env}
+    ports:
+      - "${KEYCLOAK_PORT:-8180}:8080"
+    volumes:
+      - ./infra/keycloak/realm-product-hub.json:/opt/keycloak/data/import/realm-product-hub.json:ro
+    healthcheck:
+      # l'image n'a pas curl : requête HTTP « à la main » sur le port de supervision (9000)
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  api-migrate:
+    # migrations Alembic du schéma app, avec le rôle propriétaire ; s'exécute puis s'arrête
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    command: ["alembic", "-c", "api/alembic.ini", "upgrade", "head"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      API_DB_USER: ${API_DB_USER:-api_reader}
+      API_DB_PASSWORD: ${API_DB_PASSWORD}
+      API_WRITER_DB_USER: ${API_WRITER_DB_USER:-api_writer}
+      API_WRITER_DB_PASSWORD: ${API_WRITER_DB_PASSWORD}
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      KEYCLOAK_ISSUER: http://localhost:${KEYCLOAK_PORT:-8180}/realms/product-hub
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/product-hub/protocol/openid-connect/certs
+    ports:
+      - "${API_PORT:-8001}:8000"
+    depends_on:
+      api-migrate:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
+
+  airflow:
+    profiles: ["airflow"]
+    build:
+      context: .
+      dockerfile: infra/airflow/Dockerfile
+    command: ["standalone"]
+    restart: unless-stopped
+    user: "${HOST_UID:-1000}:0"
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      # variables lues par le pipeline (ingestion, dbt, Elementary)
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      CRM_API_URL: http://mock-crm:8010
+      LANDING_DIR: /opt/product-hub/data/landing
+      SIM_START_DATE: ${SIM_START_DATE:-2026-10-01}
+      SIM_DAYS: ${SIM_DAYS:-30}
+    ports:
+      - "${AIRFLOW_PORT:-8082}:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags:ro
+      - .:/opt/product-hub
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mock-crm:
+        condition: service_healthy
 
 volumes:
   pgdata:
