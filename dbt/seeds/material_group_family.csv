@@ -1,0 +1,11 @@
+material_group,family
+SRV-RACK,Serveurs rack
+SRV-BLADE,Serveurs lame
+STORAGE,Stockage
+NETWORK,Réseau
+CPU,Processeurs
+MEMORY,Mémoire
+GPU,Accélérateurs
+COOLING,Refroidissement
+SOFTWARE,Logiciels
+SERVICES,Services

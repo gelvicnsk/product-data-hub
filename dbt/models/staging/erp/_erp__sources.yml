@@ -1,0 +1,25 @@
+version: 2
+
+# Les tables raw sont chargées par ingestion/ : valeurs en texte, une partition par
+# journée (_extract_date). Pas de test de fraîcheur dbt ici : les journées sont simulées
+# (octobre 2026) ; la fraîcheur sera surveillée par Elementary sur _extract_date (étape 4).
+
+sources:
+  - name: erp
+    description: Exports quotidiens de l'ERP (type SAP), format SAP d'origine.
+    schema: raw
+    tables:
+      - name: erp_mara
+        description: Données générales de l'article (MARA + désignation MAKT).
+        columns:
+          - name: matnr
+            description: Numéro d'article SAP sur 18 caractères.
+            data_tests: [not_null]
+          - name: _extract_date
+            data_tests: [not_null]
+      - name: erp_mbew
+        description: Valorisation de l'article (prix standard par site).
+      - name: erp_mard
+        description: Stock par site et magasin.
+      - name: erp_stpo
+        description: Postes de nomenclature (composants d'un système).

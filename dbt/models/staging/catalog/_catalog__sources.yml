@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: catalog
+    description: Export quotidien du catalogue produit (descriptions commerciales).
+    schema: raw
+    tables:
+      - name: catalog_products
+        columns:
+          - name: mfr_part_number
+            data_tests: [not_null]

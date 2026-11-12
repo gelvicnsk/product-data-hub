@@ -1,0 +1,24 @@
+version: 2
+
+sources:
+  - name: crm
+    description: >
+      Extraction incrémentale de l'API du CRM (type Salesforce). Une ligne par version
+      d'enregistrement : (id, last_modified_date) est unique.
+    schema: raw
+    tables:
+      - name: crm_accounts
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [id, last_modified_date]
+      - name: crm_quotes
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [id, last_modified_date]
+      - name: crm_quote_lines
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [id, last_modified_date]

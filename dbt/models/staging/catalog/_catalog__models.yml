@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: stg_catalog__products
+    description: Fiches du catalogue (dernier export).
+    columns:
+      - name: sku
+        data_tests: [unique]
+      - name: mfr_part_number
+        data_tests: [not_null]
+      - name: description
+        description: Description commerciale ; vide pour certaines fiches (anomalie suivie).
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+                meta:
+                  anomaly: missing_catalog_description

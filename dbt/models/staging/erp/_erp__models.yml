@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: stg_erp__materials
+    description: Référentiel article ERP (dernier export), typé et renommé.
+    columns:
+      - name: material_id
+        description: Identifiant article (MATNR sans les zéros de tête).
+        data_tests: [unique, not_null]
+      - name: material_description
+        data_tests: [not_null]
+      - name: material_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [FERT, HALB, DIEN]
+
+  - name: stg_erp__prices
+    description: Prix standard par article et par journée d'export.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [material_id, plant, extract_date]
+    columns:
+      - name: standard_price
+        data_tests: [not_null]
+
+  - name: stg_erp__bom
+    description: Composants des nomenclatures (dernier export).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [parent_material_id, bom_position]
+    columns:
+      - name: component_material_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_erp__materials')
+                field: material_id

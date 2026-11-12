@@ -10,10 +10,11 @@ export
 endif
 
 PYTHON ?= .venv/bin/python
+DBT    := cd dbt && ../.venv/bin/dbt
 DATE   ?= 2026-10-01
 
 .PHONY: help env install up down reset ps logs generate ingest ingest-day test test-unit test-db \
-        test-integration lint format psql clean
+        test-integration lint format psql clean dbt-deps dbt-build dbt-docs check-anomalies pipeline
 
 help: ## Affiche cette aide
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -59,6 +60,20 @@ ingest: ## Charge toutes les journées disponibles dans le schéma raw
 ingest-day: ## Charge une seule journée :  make ingest-day DATE=2026-10-05
 	$(PYTHON) -m ingestion.run --date $(DATE)
 
+dbt-deps: ## Installe les paquets dbt (dbt_utils)
+	$(DBT) deps --profiles-dir .
+
+dbt-build: ## Construit et teste tous les modèles dbt
+	$(DBT) build --profiles-dir .
+
+dbt-docs: ## Génère et sert la documentation dbt (lignage) sur http://localhost:8081
+	$(DBT) docs generate --profiles-dir . && $(DBT) docs serve --profiles-dir . --port 8081
+
+check-anomalies: ## Vérifie que chaque anomalie injectée est détectée par son test
+	$(PYTHON) scripts/check_anomalies.py
+
+pipeline: generate ingest dbt-build check-anomalies ## Tout le pipeline : simulation, ingestion, dbt, contrôle
+
 test: ## Tous les tests (unitaires + intégration)
 	$(PYTHON) -m pytest -q
 
@@ -87,5 +102,5 @@ psql: ## Ouvre psql sur la base de développement
 	docker compose exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
 clean: ## Supprime les données générées et les caches
-	rm -rf data/landing data/crm_db data/anomalies.json .pytest_cache .ruff_cache
+	rm -rf data/landing data/crm_db data/anomalies.json .pytest_cache .ruff_cache dbt/target dbt/logs
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +

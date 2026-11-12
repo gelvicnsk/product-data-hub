@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: plm
+    description: Export quotidien complet du PLM (cycle de vie des produits physiques).
+    schema: raw
+    tables:
+      - name: plm_lifecycle
+        columns:
+          - name: part_number
+            data_tests: [not_null]

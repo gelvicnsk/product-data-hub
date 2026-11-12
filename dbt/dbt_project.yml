@@ -1,0 +1,43 @@
+name: product_data_hub
+version: "1.0.0"
+config-version: 2
+profile: product_data_hub
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+flags:
+  require_generic_test_arguments_property: true
+
+models:
+  product_data_hub:
+    staging:
+      +schema: staging
+      # tables plutôt que vues : les vues sur raw (fenêtres row_number, casts) donnent à
+      # PostgreSQL des estimations de lignes fausses et des plans en boucles imbriquées.
+      # Matérialiser + ANALYZE ramène le build complet de ~15 s à quelques secondes.
+      +materialized: table
+      +post-hook: "analyze {{ this }}"
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table
+      # statistiques à jour pour le planificateur PostgreSQL (tables recréées à chaque build)
+      +post-hook: "analyze {{ this }}"
+
+seeds:
+  product_data_hub:
+    +schema: staging
+
+data_tests:
+  product_data_hub:
+    # les anomalies métier sont signalées sans bloquer le pipeline ;
+    # les tests d'intégrité (clés, contrats) restent bloquants (severity: error par défaut)
+    +store_failures: false

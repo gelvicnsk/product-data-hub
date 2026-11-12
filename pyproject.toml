@@ -12,6 +12,9 @@ dependencies = [
     "uvicorn>=0.30",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
+    # dbt 1.11 : version que la dernière version d'Elementary déclare compatible (étape 4)
+    "dbt-core>=1.11,<1.12",
+    "dbt-postgres>=1.11,<1.12",
 ]
 
 [project.optional-dependencies]
@@ -30,7 +33,7 @@ markers = [
 [tool.ruff]
 line-length = 110
 target-version = "py311"
-extend-exclude = ["dbt/dbt_packages", "dbt/target"]
+extend-exclude = ["dbt/dbt_packages", "dbt/target", "dbt/logs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]

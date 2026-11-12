@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: stg_crm__accounts
+    columns:
+      - name: account_id
+        data_tests: [unique, not_null]
+
+  - name: stg_crm__quotes
+    columns:
+      - name: quote_id
+        data_tests: [unique, not_null]
+      - name: quote_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Draft, Presented, Accepted, Rejected]
+      - name: account_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_crm__accounts')
+                field: account_id
+
+  - name: stg_crm__quote_lines
+    columns:
+      - name: quote_line_id
+        data_tests: [unique, not_null]
+      - name: quote_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_crm__quotes')
+                field: quote_id
+      - name: quantity
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1

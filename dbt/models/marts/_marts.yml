@@ -1,0 +1,151 @@
+version: 2
+
+models:
+  - name: dim_product
+    description: >
+      Golden record produit : une fiche unique par article ERP, consolidée avec le PLM,
+      le catalogue et le CRM. Table exposée par l'API.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: product_id
+        description: Identifiant article (MATNR sans les zéros).
+        data_type: bigint
+        constraints:
+          - type: not_null
+          - type: primary_key
+        data_tests: [unique, not_null]
+      - name: matnr
+        data_type: text
+      - name: mfr_part_number
+        description: Référence constructeur. Doit être unique ; un doublon signale un même produit sous deux codes ERP.
+        data_type: text
+        data_tests:
+          - unique:
+              config:
+                severity: warn
+                meta:
+                  anomaly: duplicate_material
+      - name: product_name
+        data_type: text
+        data_tests: [not_null]
+      - name: description
+        data_type: text
+      - name: description_source
+        data_type: text
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [catalog, erp]
+      - name: family
+        data_type: text
+        data_tests: [not_null]
+      - name: material_type
+        data_type: text
+      - name: material_group
+        data_type: text
+      - name: base_unit
+        data_type: text
+      - name: is_configurable
+        data_type: boolean
+      - name: lifecycle_state
+        data_type: text
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [PROTOTYPE, ACTIVE, END_OF_LIFE, RETIRED, NOT_MANAGED, UNKNOWN]
+      - name: revision
+        data_type: text
+      - name: lifecycle_changed_at
+        data_type: timestamp
+      - name: standard_price
+        data_type: numeric
+      - name: currency
+        data_type: text
+      - name: has_valid_price
+        data_type: boolean
+      - name: last_accepted_unit_price
+        data_type: numeric
+      - name: last_accepted_at
+        data_type: timestamp with time zone
+      - name: plm_part_number
+        data_type: text
+      - name: catalog_sku
+        data_type: text
+      - name: catalog_match_method
+        data_type: text
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [sku, mfr_part_number]
+      - name: is_in_plm
+        data_type: boolean
+      - name: is_in_catalog
+        data_type: boolean
+      - name: is_suspected_duplicate
+        data_type: boolean
+      - name: erp_extract_date
+        data_type: date
+
+  - name: dim_account
+    description: Comptes clients et leur activité de devis.
+    columns:
+      - name: account_id
+        data_tests: [unique, not_null]
+
+  - name: fct_quote_lines
+    description: Lignes de devis, avec l'état PLM et le coût ERP connus le jour du devis.
+    columns:
+      - name: quote_line_id
+        data_tests: [unique, not_null]
+      - name: material_id
+        description: Article vendu. Doit exister dans le golden record.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_id
+              config:
+                severity: warn
+                meta:
+                  anomaly: unknown_product_in_quotes
+      - name: account_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_account')
+                field: account_id
+
+  - name: fct_price_history
+    description: Périodes de validité des prix standard ERP.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [product_id, plant, valid_from]
+    columns:
+      - name: valid_to
+        data_tests:
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: ">= valid_from"
+              config:
+                where: "valid_to is not null"
+
+  - name: mart_eol_products_in_quotes
+    description: Devis portant sur un produit déjà en fin de vie le jour du devis.
+
+  - name: mart_catalog_gaps
+    description: Produits absents du catalogue ou sans description commerciale.
+    columns:
+      - name: gap_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [missing_from_catalog, missing_description]
+
+  - name: mart_margin_by_family
+    description: Chiffre d'affaires et marge des devis acceptés, par famille.
+    columns:
+      - name: family
+        data_tests: [unique, not_null]

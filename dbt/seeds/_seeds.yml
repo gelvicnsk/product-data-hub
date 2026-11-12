@@ -1,0 +1,12 @@
+version: 2
+
+seeds:
+  - name: material_group_family
+    description: >
+      Correspondance entre le groupe de marchandises SAP (MATKL) et la famille commerciale.
+      Sert de repli quand un article n'a pas de fiche dans le catalogue.
+    columns:
+      - name: material_group
+        data_tests: [unique, not_null]
+      - name: family
+        data_tests: [not_null]
