@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "ruff>=0.6"
+      - run: ruff check .
+      - run: ruff format --check .
+
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: product_hub_test
+          POSTGRES_USER: hub_admin
+          POSTGRES_PASSWORD: ci_password
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U hub_admin -d product_hub_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5433"
+      POSTGRES_USER: hub_admin
+      POSTGRES_PASSWORD: ci_password
+      POSTGRES_TEST_DB: product_hub_test
+      API_DB_PASSWORD: ci_api_password   # mot de passe jetable, uniquement pour la CI
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: Initialiser la base de test
+        env:
+          PGPASSWORD: ci_password
+        run: psql -h localhost -p 5433 -U hub_admin -d product_hub_test -v ON_ERROR_STOP=1 -f infra/postgres/init.sql
+      - name: Tests unitaires et d'intégration
+        run: pytest -q -rs
+      - name: Vérifier que les tests d'intégration n'ont pas été ignorés
+        run: pytest -q -m integration -rs | tee pytest.log && ! grep -q "skipped" pytest.log

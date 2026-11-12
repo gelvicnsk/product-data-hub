@@ -1,0 +1,50 @@
+# Environnement de développement local.
+# Le déploiement se fera sur Kubernetes (dossier k8s/), à une étape ultérieure.
+#
+#   make up        -> postgres + faux CRM
+#   make down      -> arrêt (les données restent dans le volume)
+#   make reset     -> arrêt + suppression du volume
+
+name: product-data-hub
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB manquant dans .env}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER manquant dans .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant dans .env}
+      API_DB_USER: ${API_DB_USER:-api_reader}
+      API_DB_PASSWORD: ${API_DB_PASSWORD:?API_DB_PASSWORD manquant dans .env}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mock-crm:
+    build:
+      context: .
+      dockerfile: sources/mock_crm/Dockerfile
+    restart: unless-stopped
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    environment:
+      LANDING_DIR: /data/landing
+    ports:
+      - "${MOCK_CRM_PORT:-8010}:8010"
+    volumes:
+      - ./data/landing:/data/landing:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
